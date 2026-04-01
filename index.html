@@ -1,431 +1,544 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, MapPin, User, FileText, CheckCircle2, AlertCircle, Phone, HeartPulse, Stethoscope, Baby, Banknote, ChevronRight, Info, Loader2 } from 'lucide-react';
-
-// ==========================================
-// ✅ 已換上您的專屬 Google Apps Script 網址
-// ==========================================
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzjS1u-tqJBkFdCd31_hLaGUaE6NpEIjil_tSwOb8Swx3-G3fKvLAwEQG0gTW74JpPT/exec'; 
-
-const scheduleData = [
-  { time: '08:00~08:15', duration: '15min', item: '考官、標準化病人報到\n任務說明', location: '' },
-  { time: '08:15~09:30', duration: '75min', item: '考官共識會議\n考官與標準化病人演出\n訓練模擬', location: '會議室' },
-  { time: '09:00~09:10', duration: '10min', item: '考生報到', location: '報到處' },
-  { time: '09:10~09:25', duration: '15min', item: '考前說明', location: '考生休息區' },
-  { time: '09:25~09:30', duration: '5min', item: '進場準備時間', location: '' },
-  { time: '09:30~10:45', duration: '75min', item: 'A組(11人)技能測驗', location: '試場', highlight: true },
-  { time: '10:45~10:55', duration: '10min', item: '梯次換場休息時間', location: '' },
-  { time: '10:50~11:00', duration: '5min', item: '進場準備時間', location: '' },
-  { time: '11:00~12:15', duration: '75min', item: 'B組(11人)技能測驗', location: '試場', highlight: true },
-  { time: '12:15~12:30', duration: '15min', item: '考試結束', location: '' },
-];
-
-export default function App() {
-  const [formData, setFormData] = useState({
-    name: '',
-    phone: '',
-    department: '',
-    notes: ''
-  });
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>中山後醫 OSCE 模擬考 - 院內考官報名</title>
   
-  // 報名狀態與讀取狀態
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  <!-- 引入 Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
   
-  // 記錄各科別報名人數
-  const [availability, setAvailability] = useState({
-    '內科': 0,
-    '外科': 0,
-    '婦產科': 0,
-    '兒科': 0
-  });
+  <!-- 引入 Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-  // 網頁載入時，向 Google Sheets 請求目前的報名人數
-  useEffect(() => {
-    if (!SCRIPT_URL) {
-      setIsLoading(false);
-      return;
+  <!-- 自訂一些隱藏卷軸的樣式 -->
+  <style>
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
     }
-
-    fetch(SCRIPT_URL)
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.counts) {
-          setAvailability(data.counts);
-        }
-      })
-      .catch(err => {
-        console.error('無法取得報名狀態:', err);
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, []);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    // 雙重檢查：如果該科別已經額滿，阻擋送出
-    if (availability[formData.department] >= 1) {
-      alert(`抱歉，${formData.department} 剛剛已經額滿了，請選擇其他科別。`);
-      return;
+    .scrollbar-hide {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
     }
+    /* 自訂下拉選單箭頭 */
+    .custom-select {
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 1rem center;
+        background-repeat: no-repeat;
+        background-size: 1.5em 1.5em;
+    }
+  </style>
+</head>
+<body class="bg-[#f8fafc] text-gray-800 font-sans selection:bg-teal-200">
 
-    setIsSubmitting(true);
+  <!-- 成功報名畫面 (預設隱藏) -->
+  <div id="success-screen" class="hidden min-h-screen bg-gray-50 items-center justify-center p-4">
+    <div class="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center space-y-5 border border-gray-100">
+      <div class="mx-auto w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center mb-4">
+        <i data-lucide="check-circle-2" class="w-12 h-12 text-teal-500"></i>
+      </div>
+      <h2 class="text-3xl font-bold text-gray-800 tracking-tight">報名成功！</h2>
+      <p class="text-gray-500 leading-relaxed">
+        感謝您的熱心參與。我們已收到您的報名資料，後續將由承辦人發送詳細的行前通知至您的信箱與單位。
+      </p>
+      <div class="pt-6">
+        <button id="back-btn" class="w-full py-3.5 px-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg active:scale-[0.98]">
+          返回報名首頁
+        </button>
+      </div>
+    </div>
+  </div>
 
-    try {
-      // 實際送出至 Google Apps Script
-      const response = await fetch(SCRIPT_URL, {
-        method: 'POST',
-        // 使用 text/plain 避免 CORS preflight (OPTIONS) 請求被 GAS 阻擋
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(formData)
-      });
+  <!-- 主要報名畫面 -->
+  <div id="main-content" class="min-h-screen">
+    <!-- 頂部橫幅 -->
+    <header class="bg-teal-900 text-white pt-16 pb-20 px-4 shadow-lg relative overflow-hidden">
+      <!-- 背景圖片 -->
+      <div class="absolute inset-0 opacity-25 mix-blend-luminosity grayscale" style="background-image: url('https://images.unsplash.com/photo-1584982751601-97dcc096659c?auto=format&fit=crop&w=2000&q=80'); background-size: cover; background-position: center;"></div>
+      <div class="absolute inset-0 bg-gradient-to-br from-teal-800/90 via-teal-700/90 to-emerald-900/90"></div>
+
+      <!-- 背景裝飾光暈 -->
+      <div class="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-teal-400 opacity-20 blur-3xl"></div>
+      <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-emerald-400 opacity-20 blur-3xl"></div>
       
-      const result = await response.json();
+      <div class="max-w-6xl mx-auto relative z-10 text-center lg:text-left">
+        <div class="inline-flex items-center px-4 py-1.5 bg-white/10 rounded-full text-teal-50 text-sm font-medium tracking-wider mb-6 border border-white/20 backdrop-blur-sm">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></span>
+          院內考官熱烈招募中
+        </div>
+        <h1 class="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight mb-5 leading-tight">
+          中山後醫 OSCE 模擬考
+        </h1>
+        <p class="text-teal-50 text-base sm:text-lg lg:text-xl max-w-2xl leading-relaxed mx-auto lg:mx-0 font-light">
+          誠摯邀請院內主治醫師擔任客座考官，協助醫學生進行客觀結構式臨床技能測驗（OSCE）模擬訓練。
+        </p>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 -mt-10 pb-16 flex flex-col lg:flex-row gap-8 items-start relative z-20">
       
-      if (result.success) {
-        setSubmitSuccess(true);
-        // 更新本地端人數狀態，避免同一人重複報同科，並讓畫面即刻更新為額滿
-        setAvailability(prev => ({
-          ...prev,
-          [formData.department]: prev[formData.department] + 1
-        }));
-      } else {
-        alert('報名失敗：' + (result.message || '請稍後再試'));
-      }
-    } catch (error) {
-      alert('連線發生錯誤，請稍後再試。');
-      console.error(error);
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const departments = [
-    { id: 'internal', name: '內科', icon: HeartPulse, color: 'text-rose-500', bg: 'bg-rose-50', border: 'border-rose-100' },
-    { id: 'surgery', name: '外科', icon: FileText, color: 'text-sky-500', bg: 'bg-sky-50', border: 'border-sky-100' },
-    { id: 'obgyn', name: '婦產科', icon: User, color: 'text-purple-500', bg: 'bg-purple-50', border: 'border-purple-100' },
-    { id: 'peds', name: '兒科', icon: Baby, color: 'text-amber-500', bg: 'bg-amber-50', border: 'border-amber-100' }
-  ];
-
-  if (submitSuccess) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center space-y-5 border border-gray-100">
-          <div className="mx-auto w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center mb-4">
-            <CheckCircle2 className="w-12 h-12 text-teal-500" />
+      <!-- 左側資訊區 -->
+      <div class="w-full lg:w-[55%] xl:w-[60%] space-y-6">
+        
+        <!-- 活動資訊卡片 -->
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 sm:p-8 hover:shadow-md transition-shadow relative overflow-hidden">
+          
+          <!-- 載入中遮罩 (保護區塊) -->
+          <div id="loading-overlay" class="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
+            <i data-lucide="loader-2" class="w-8 h-8 text-teal-600 animate-spin mb-2"></i>
+            <span class="text-sm text-teal-800 font-medium">同步報名名額中...</span>
           </div>
-          <h2 className="text-3xl font-bold text-gray-800 tracking-tight">報名成功！</h2>
-          <p className="text-gray-500 leading-relaxed">
-            感謝您的熱心參與。我們已收到您的報名資料，後續將由承辦人發送詳細的行前通知至您的信箱與單位。
-          </p>
-          <div className="pt-6">
-            <button 
-              onClick={() => {
-                setSubmitSuccess(false);
-                setFormData({ name: '', phone: '', department: '', notes: '' });
-              }}
-              className="w-full py-3.5 px-4 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold transition-all shadow-md hover:shadow-lg active:scale-[0.98]"
-            >
-              返回報名首頁
-            </button>
+
+          <h2 class="text-xl sm:text-2xl font-bold mb-6 flex items-center text-gray-800">
+            <div class="bg-teal-50 p-2 rounded-xl mr-3">
+              <i data-lucide="alert-circle" class="w-6 h-6 text-teal-600"></i>
+            </div>
+            活動資訊
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
+            <div class="flex items-start bg-gray-50/50 p-4 rounded-2xl">
+              <i data-lucide="calendar" class="w-6 h-6 text-teal-500 mr-4 shrink-0 mt-0.5"></i>
+              <div>
+                <p class="text-sm text-gray-500 font-medium mb-1">日期</p>
+                <p class="font-bold text-gray-800">115年6月13日 (六)</p>
+              </div>
+            </div>
+            <div class="flex items-start bg-gray-50/50 p-4 rounded-2xl">
+              <i data-lucide="clock" class="w-6 h-6 text-teal-500 mr-4 shrink-0 mt-0.5"></i>
+              <div>
+                <p class="text-sm text-gray-500 font-medium mb-1">時間</p>
+                <p class="font-bold text-gray-800">08:00 - 12:30</p>
+              </div>
+            </div>
+            <div class="flex items-start bg-gray-50/50 p-4 rounded-2xl">
+              <i data-lucide="map-pin" class="w-6 h-6 text-teal-500 mr-4 shrink-0 mt-0.5"></i>
+              <div>
+                <p class="text-sm text-gray-500 font-medium mb-1">地點</p>
+                <p class="font-bold text-gray-800">高雄榮民總醫院</p>
+              </div>
+            </div>
+            <div class="flex items-start bg-teal-50/50 p-4 rounded-2xl border border-teal-100">
+              <i data-lucide="banknote" class="w-6 h-6 text-teal-600 mr-4 shrink-0 mt-0.5"></i>
+              <div>
+                <p class="text-sm text-teal-600 font-medium mb-1">考官費用</p>
+                <p class="font-bold text-teal-800 text-lg">3,000 元</p>
+              </div>
+            </div>
+          </div>
+
+          <hr class="my-8 border-gray-100" />
+
+          <h3 class="font-bold text-lg mb-4 text-gray-800 flex items-center">
+            招募科別需求 
+            <span class="ml-3 text-sm font-normal text-gray-500 bg-gray-100 px-3 py-1 rounded-full">各1名</span>
+          </h3>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 relative">
+            <!-- 內科 -->
+            <div id="card-內科" class="dept-card flex flex-col items-center p-4 rounded-2xl border border-rose-100 bg-rose-50 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+              <i data-lucide="heart-pulse" class="w-8 h-8 mb-3 text-rose-500 icon-color"></i>
+              <span class="font-bold text-gray-700 dept-title">內科</span>
+              <span class="status-badge text-xs font-medium mt-1.5 px-2 py-0.5 rounded-md shadow-sm bg-white text-teal-600">缺額 1</span>
+            </div>
+            <!-- 外科 -->
+            <div id="card-外科" class="dept-card flex flex-col items-center p-4 rounded-2xl border border-sky-100 bg-sky-50 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+              <i data-lucide="file-text" class="w-8 h-8 mb-3 text-sky-500 icon-color"></i>
+              <span class="font-bold text-gray-700 dept-title">外科</span>
+              <span class="status-badge text-xs font-medium mt-1.5 px-2 py-0.5 rounded-md shadow-sm bg-white text-teal-600">缺額 1</span>
+            </div>
+            <!-- 婦產科 -->
+            <div id="card-婦產科" class="dept-card flex flex-col items-center p-4 rounded-2xl border border-purple-100 bg-purple-50 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+              <i data-lucide="user" class="w-8 h-8 mb-3 text-purple-500 icon-color"></i>
+              <span class="font-bold text-gray-700 dept-title">婦產科</span>
+              <span class="status-badge text-xs font-medium mt-1.5 px-2 py-0.5 rounded-md shadow-sm bg-white text-teal-600">缺額 1</span>
+            </div>
+            <!-- 兒科 -->
+            <div id="card-兒科" class="dept-card flex flex-col items-center p-4 rounded-2xl border border-amber-100 bg-amber-50 transition-all duration-300 hover:-translate-y-1 hover:shadow-sm">
+              <i data-lucide="baby" class="w-8 h-8 mb-3 text-amber-500 icon-color"></i>
+              <span class="font-bold text-gray-700 dept-title">兒科</span>
+              <span class="status-badge text-xs font-medium mt-1.5 px-2 py-0.5 rounded-md shadow-sm bg-white text-teal-600">缺額 1</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 考試流程卡片 -->
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 sm:p-8 overflow-hidden hover:shadow-md transition-shadow">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
+            <h2 class="text-xl sm:text-2xl font-bold flex items-center text-gray-800">
+              <div class="bg-teal-50 p-2 rounded-xl mr-3">
+                <i data-lucide="file-text" class="w-6 h-6 text-teal-600"></i>
+              </div>
+              考試流程
+            </h2>
+            <div class="sm:hidden text-xs text-teal-600 flex items-center bg-teal-50 px-3 py-1.5 rounded-full self-start">
+              <i data-lucide="info" class="w-3.5 h-3.5 mr-1"></i>
+              左右滑動查看完整表格
+            </div>
+          </div>
+          
+          <div class="overflow-x-auto -mx-5 sm:mx-0 px-5 sm:px-0 scrollbar-hide">
+            <div class="min-w-[500px]">
+              <table class="w-full text-sm text-left border-collapse">
+                <thead>
+                  <tr class="border-b-2 border-teal-500 bg-gray-50/50">
+                    <th class="px-4 py-4 font-bold text-gray-700 text-center w-1/4 rounded-tl-xl">時間</th>
+                    <th class="px-4 py-4 font-bold text-gray-700 text-center w-2/4">項目</th>
+                    <th class="px-4 py-4 font-bold text-gray-700 text-center w-1/4 rounded-tr-xl">地點</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                  <tr class="hover:bg-teal-50/30 transition-colors">
+                    <td class="px-4 py-3.5 text-center whitespace-nowrap"><div class="font-semibold text-gray-700">08:00~08:15</div><div class="text-xs text-gray-400 mt-0.5 font-medium">15min</div></td>
+                    <td class="px-4 py-3.5 whitespace-pre-line text-center text-gray-600 font-medium">考官、標準化病人報到<br>任務說明</td>
+                    <td class="px-4 py-3.5 text-center"><span class="inline-block px-3 py-1 rounded-full text-xs font-medium text-gray-400">-</span></td>
+                  </tr>
+                  <tr class="hover:bg-teal-50/30 transition-colors">
+                    <td class="px-4 py-3.5 text-center whitespace-nowrap"><div class="font-semibold text-gray-700">08:15~09:30</div><div class="text-xs text-gray-400 mt-0.5 font-medium">75min</div></td>
+                    <td class="px-4 py-3.5 whitespace-pre-line text-center text-gray-600 font-medium">考官共識會議<br>考官與標準化病人演出<br>訓練模擬</td>
+                    <td class="px-4 py-3.5 text-center"><span class="inline-block px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">會議室</span></td>
+                  </tr>
+                  <tr class="hover:bg-teal-50/30 transition-colors">
+                    <td class="px-4 py-3.5 text-center whitespace-nowrap"><div class="font-semibold text-gray-700">09:00~09:10</div><div class="text-xs text-gray-400 mt-0.5 font-medium">10min</div></td>
+                    <td class="px-4 py-3.5 whitespace-pre-line text-center text-gray-600 font-medium">考生報到</td>
+                    <td class="px-4 py-3.5 text-center"><span class="inline-block px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">報到處</span></td>
+                  </tr>
+                  <tr class="hover:bg-teal-50/30 transition-colors">
+                    <td class="px-4 py-3.5 text-center whitespace-nowrap"><div class="font-semibold text-gray-700">09:10~09:25</div><div class="text-xs text-gray-400 mt-0.5 font-medium">15min</div></td>
+                    <td class="px-4 py-3.5 whitespace-pre-line text-center text-gray-600 font-medium">考前說明</td>
+                    <td class="px-4 py-3.5 text-center"><span class="inline-block px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">考生休息區</span></td>
+                  </tr>
+                  <tr class="hover:bg-teal-50/30 transition-colors">
+                    <td class="px-4 py-3.5 text-center whitespace-nowrap"><div class="font-semibold text-gray-700">09:25~09:30</div><div class="text-xs text-gray-400 mt-0.5 font-medium">5min</div></td>
+                    <td class="px-4 py-3.5 whitespace-pre-line text-center text-gray-600 font-medium">進場準備時間</td>
+                    <td class="px-4 py-3.5 text-center"><span class="inline-block px-3 py-1 rounded-full text-xs font-medium text-gray-400">-</span></td>
+                  </tr>
+                  <tr class="bg-teal-50/50 hover:bg-teal-50/30 transition-colors">
+                    <td class="px-4 py-3.5 text-center whitespace-nowrap"><div class="font-semibold text-teal-700">09:30~10:45</div><div class="text-xs text-gray-400 mt-0.5 font-medium">75min</div></td>
+                    <td class="px-4 py-3.5 whitespace-pre-line text-center text-teal-700 font-bold">A組(11人)技能測驗</td>
+                    <td class="px-4 py-3.5 text-center"><span class="inline-block px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">試場</span></td>
+                  </tr>
+                  <tr class="hover:bg-teal-50/30 transition-colors">
+                    <td class="px-4 py-3.5 text-center whitespace-nowrap"><div class="font-semibold text-gray-700">10:45~10:55</div><div class="text-xs text-gray-400 mt-0.5 font-medium">10min</div></td>
+                    <td class="px-4 py-3.5 whitespace-pre-line text-center text-gray-600 font-medium">梯次換場休息時間</td>
+                    <td class="px-4 py-3.5 text-center"><span class="inline-block px-3 py-1 rounded-full text-xs font-medium text-gray-400">-</span></td>
+                  </tr>
+                  <tr class="hover:bg-teal-50/30 transition-colors">
+                    <td class="px-4 py-3.5 text-center whitespace-nowrap"><div class="font-semibold text-gray-700">10:50~11:00</div><div class="text-xs text-gray-400 mt-0.5 font-medium">5min</div></td>
+                    <td class="px-4 py-3.5 whitespace-pre-line text-center text-gray-600 font-medium">進場準備時間</td>
+                    <td class="px-4 py-3.5 text-center"><span class="inline-block px-3 py-1 rounded-full text-xs font-medium text-gray-400">-</span></td>
+                  </tr>
+                  <tr class="bg-teal-50/50 hover:bg-teal-50/30 transition-colors">
+                    <td class="px-4 py-3.5 text-center whitespace-nowrap"><div class="font-semibold text-teal-700">11:00~12:15</div><div class="text-xs text-gray-400 mt-0.5 font-medium">75min</div></td>
+                    <td class="px-4 py-3.5 whitespace-pre-line text-center text-teal-700 font-bold">B組(11人)技能測驗</td>
+                    <td class="px-4 py-3.5 text-center"><span class="inline-block px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">試場</span></td>
+                  </tr>
+                  <tr class="hover:bg-teal-50/30 transition-colors">
+                    <td class="px-4 py-3.5 text-center whitespace-nowrap"><div class="font-semibold text-gray-700">12:15~12:30</div><div class="text-xs text-gray-400 mt-0.5 font-medium">15min</div></td>
+                    <td class="px-4 py-3.5 whitespace-pre-line text-center text-gray-600 font-medium">考試結束</td>
+                    <td class="px-4 py-3.5 text-center"><span class="inline-block px-3 py-1 rounded-full text-xs font-medium text-gray-400">-</span></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          
+          <div class="mt-6 bg-blue-50/50 p-4 sm:p-5 rounded-2xl border border-blue-100 text-sm text-blue-800 leading-relaxed flex items-start">
+            <i data-lucide="info" class="w-5 h-5 text-blue-500 mr-3 shrink-0 mt-0.5"></i>
+            <div>
+              <span class="font-bold block mb-1">試場配置 (共計 12 診間)：</span>
+              <span class="text-blue-600/90">每站 10 分鐘 (包含：讀題換站 2 分鐘、測驗 8 分鐘)；測驗後回饋 2 分鐘。</span>
+            </div>
           </div>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div className="min-h-screen bg-[#f8fafc] text-gray-800 font-sans selection:bg-teal-200">
-      <header className="bg-teal-900 text-white pt-16 pb-20 px-4 shadow-lg relative overflow-hidden">
-        <div 
-          className="absolute inset-0 opacity-25 mix-blend-luminosity grayscale"
-          style={{
-            backgroundImage: 'url("https://images.unsplash.com/photo-1584982751601-97dcc096659c?auto=format&fit=crop&w=2000&q=80")',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
-          }}
-        ></div>
-        <div className="absolute inset-0 bg-gradient-to-br from-teal-800/90 via-teal-700/90 to-emerald-900/90"></div>
-
-        <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-teal-400 opacity-20 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-80 h-80 rounded-full bg-emerald-400 opacity-20 blur-3xl"></div>
-        
-        <div className="max-w-6xl mx-auto relative z-10 text-center lg:text-left">
-          <div className="inline-flex items-center px-4 py-1.5 bg-white/10 rounded-full text-teal-50 text-sm font-medium tracking-wider mb-6 border border-white/20 backdrop-blur-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></span>
-            院內考官熱烈招募中
-          </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight mb-5 leading-tight">
-            中山後醫 OSCE 模擬考
-          </h1>
-          <p className="text-teal-50 text-base sm:text-lg lg:text-xl max-w-2xl leading-relaxed mx-auto lg:mx-0 font-light">
-            誠摯邀請院內主治醫師擔任客座考官，協助醫學生進行客觀結構式臨床技能測驗（OSCE）模擬訓練。
-          </p>
-        </div>
-      </header>
-
-      <main className="max-w-6xl mx-auto px-4 -mt-10 pb-16 flex flex-col lg:flex-row gap-8 items-start relative z-20">
-        
-        <div className="w-full lg:w-[55%] xl:w-[60%] space-y-6">
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 sm:p-8 hover:shadow-md transition-shadow relative overflow-hidden">
-            {/* 載入中遮罩 (保護區塊) */}
-            {isLoading && (
-              <div className="absolute inset-0 bg-white/70 backdrop-blur-sm z-10 flex flex-col items-center justify-center">
-                <Loader2 className="w-8 h-8 text-teal-600 animate-spin mb-2" />
-                <span className="text-sm text-teal-800 font-medium">同步報名名額中...</span>
-              </div>
-            )}
-            
-            <h2 className="text-xl sm:text-2xl font-bold mb-6 flex items-center text-gray-800">
-              <div className="bg-teal-50 p-2 rounded-xl mr-3">
-                <AlertCircle className="w-6 h-6 text-teal-600" />
-              </div>
-              活動資訊
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 sm:gap-6">
-              <div className="flex items-start bg-gray-50/50 p-4 rounded-2xl">
-                <Calendar className="w-6 h-6 text-teal-500 mr-4 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-gray-500 font-medium mb-1">日期</p>
-                  <p className="font-bold text-gray-800">115年6月13日 (六)</p>
-                </div>
-              </div>
-              <div className="flex items-start bg-gray-50/50 p-4 rounded-2xl">
-                <Clock className="w-6 h-6 text-teal-500 mr-4 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-gray-500 font-medium mb-1">時間</p>
-                  <p className="font-bold text-gray-800">08:00 - 12:30</p>
-                </div>
-              </div>
-              <div className="flex items-start bg-gray-50/50 p-4 rounded-2xl">
-                <MapPin className="w-6 h-6 text-teal-500 mr-4 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-gray-500 font-medium mb-1">地點</p>
-                  <p className="font-bold text-gray-800">高雄榮民總醫院</p>
-                </div>
-              </div>
-              <div className="flex items-start bg-teal-50/50 p-4 rounded-2xl border border-teal-100">
-                <Banknote className="w-6 h-6 text-teal-600 mr-4 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-teal-600 font-medium mb-1">考官費用</p>
-                  <p className="font-bold text-teal-800 text-lg">3,000 元</p>
-                </div>
-              </div>
-            </div>
-
-            <hr className="my-8 border-gray-100" />
-
-            <h3 className="font-bold text-lg mb-4 text-gray-800 flex items-center">
-              招募科別需求 
-              <span className="ml-3 text-sm font-normal text-gray-500 bg-gray-100 px-3 py-1 rounded-full">各1名</span>
-            </h3>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 relative">
-              {departments.map((dept) => {
-                const isFull = availability[dept.name] >= 1; // 判斷是否大於等於1
-                return (
-                  <div key={dept.id} className={`flex flex-col items-center p-4 rounded-2xl border transition-all duration-300 ${isFull ? 'bg-gray-50 border-gray-200 grayscale opacity-70' : `${dept.border} ${dept.bg} hover:-translate-y-1 hover:shadow-sm`}`}>
-                    <dept.icon className={`w-8 h-8 mb-3 ${isFull ? 'text-gray-400' : dept.color}`} />
-                    <span className={`font-bold ${isFull ? 'text-gray-500' : 'text-gray-700'}`}>
-                      {dept.name}
-                    </span>
-                    <span className={`text-xs font-medium mt-1.5 px-2 py-0.5 rounded-md shadow-sm ${isFull ? 'bg-gray-200 text-gray-500' : 'bg-white text-teal-600'}`}>
-                      {isFull ? '已額滿' : '缺額 1'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
+      <!-- 右側報名表單區 -->
+      <div class="w-full lg:w-[45%] xl:w-[40%]">
+        <div class="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 sm:p-8 lg:sticky lg:top-8 relative overflow-hidden">
+          
+          <!-- 表單鎖定遮罩 (當資料還在讀取中時) -->
+          <div id="form-loading-overlay" class="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center"></div>
+          
+          <div class="mb-8">
+            <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">考官報名表</h2>
+            <div class="w-12 h-1.5 bg-teal-500 rounded-full mt-3 mb-4"></div>
+            <p class="text-gray-500 text-sm">請填寫以下資訊，完成後將有專人與您聯繫確認。</p>
           </div>
 
-          <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-5 sm:p-8 overflow-hidden hover:shadow-md transition-shadow">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-2">
-              <h2 className="text-xl sm:text-2xl font-bold flex items-center text-gray-800">
-                <div className="bg-teal-50 p-2 rounded-xl mr-3">
-                  <FileText className="w-6 h-6 text-teal-600" />
-                </div>
-                考試流程
-              </h2>
-              <div className="sm:hidden text-xs text-teal-600 flex items-center bg-teal-50 px-3 py-1.5 rounded-full self-start">
-                <Info className="w-3.5 h-3.5 mr-1" />
-                左右滑動查看完整表格
-              </div>
-            </div>
+          <form id="enrollment-form" class="space-y-6">
             
-            <div className="overflow-x-auto -mx-5 sm:mx-0 px-5 sm:px-0 scrollbar-hide">
-              <div className="min-w-[500px]">
-                <table className="w-full text-sm text-left border-collapse">
-                  <thead>
-                    <tr className="border-b-2 border-teal-500 bg-gray-50/50">
-                      <th className="px-4 py-4 font-bold text-gray-700 text-center w-1/4 rounded-tl-xl">時間</th>
-                      <th className="px-4 py-4 font-bold text-gray-700 text-center w-2/4">項目</th>
-                      <th className="px-4 py-4 font-bold text-gray-700 text-center w-1/4 rounded-tr-xl">地點</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {scheduleData.map((row, index) => (
-                      <tr key={index} className={`hover:bg-teal-50/30 transition-colors ${row.highlight ? 'bg-teal-50/50' : ''}`}>
-                        <td className="px-4 py-3.5 text-center whitespace-nowrap">
-                          <div className={`font-semibold ${row.highlight ? 'text-teal-700' : 'text-gray-700'}`}>{row.time}</div>
-                          <div className="text-xs text-gray-400 mt-0.5 font-medium">{row.duration}</div>
-                        </td>
-                        <td className={`px-4 py-3.5 whitespace-pre-line text-center ${row.highlight ? 'text-teal-700 font-bold' : 'text-gray-600 font-medium'}`}>
-                          {row.item}
-                        </td>
-                        <td className="px-4 py-3.5 text-center">
-                          <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${row.location ? 'bg-gray-100 text-gray-600' : 'text-gray-400'}`}>
-                            {row.location || '-'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            
-            <div className="mt-6 bg-blue-50/50 p-4 sm:p-5 rounded-2xl border border-blue-100 text-sm text-blue-800 leading-relaxed flex items-start">
-              <Info className="w-5 h-5 text-blue-500 mr-3 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold block mb-1">試場配置 (共計 12 診間)：</span>
-                <span className="text-blue-600/90">每站 10 分鐘 (包含：讀題換站 2 分鐘、測驗 8 分鐘)；測驗後回饋 2 分鐘。</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="w-full lg:w-[45%] xl:w-[40%]">
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-100 p-6 sm:p-8 lg:sticky lg:top-8 relative overflow-hidden">
-            {/* 表單鎖定遮罩 (當資料還在讀取中時) */}
-            {isLoading && (
-              <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-10 flex flex-col items-center justify-center"></div>
-            )}
-            
-            <div className="mb-8">
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 tracking-tight">考官報名表</h2>
-              <div className="w-12 h-1.5 bg-teal-500 rounded-full mt-3 mb-4"></div>
-              <p className="text-gray-500 text-sm">請填寫以下資訊，完成後將有專人與您聯繫確認。</p>
-            </div>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  姓名 <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    name="name"
-                    required
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className="block w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
-                    placeholder="請輸入真實姓名"
-                  />
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-2">
+                姓名 <span class="text-red-500">*</span>
+              </label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <i data-lucide="user" class="h-5 w-5 text-gray-400"></i>
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  聯絡手機 <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                    <Phone className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="tel"
-                    name="phone"
-                    required
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    className="block w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
-                    placeholder="09XX-XXX-XXX"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  報名考官科別 <span className="text-red-500">*</span>
-                </label>
-                <select
-                  name="department"
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
                   required
-                  value={formData.department}
-                  onChange={handleInputChange}
-                  className={`block w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none appearance-none ${formData.department ? 'text-gray-800' : 'text-gray-500'}`}
-                  style={{ backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`, backgroundPosition: `right 1rem center`, backgroundRepeat: `no-repeat`, backgroundSize: `1.5em 1.5em` }}
-                >
-                  <option value="" disabled>請選擇欲報名之科別...</option>
-                  <option value="內科" disabled={availability['內科'] >= 1}>內科 {availability['內科'] >= 1 ? '(已額滿)' : '(尚缺 1 名)'}</option>
-                  <option value="外科" disabled={availability['外科'] >= 1}>外科 {availability['外科'] >= 1 ? '(已額滿)' : '(尚缺 1 名)'}</option>
-                  <option value="婦產科" disabled={availability['婦產科'] >= 1}>婦產科 {availability['婦產科'] >= 1 ? '(已額滿)' : '(尚缺 1 名)'}</option>
-                  <option value="兒科" disabled={availability['兒科'] >= 1}>兒科 {availability['兒科'] >= 1 ? '(已額滿)' : '(尚缺 1 名)'}</option>
-                </select>
-                {/* 提示訊息：如果選中了被其他使用者搶先報名的科別 */}
-                {formData.department && availability[formData.department] >= 1 && (
-                  <p className="text-red-500 text-sm mt-2 flex items-center">
-                    <AlertCircle className="w-4 h-4 mr-1" />
-                    注意：此科別剛剛已被報名額滿，請選擇其他科別。
-                  </p>
-                )}
+                  class="block w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
+                  placeholder="請輸入真實姓名"
+                />
               </div>
+            </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  備註留言
-                </label>
-                <textarea
-                  name="notes"
-                  rows="3"
-                  value={formData.notes}
-                  onChange={handleInputChange}
-                  className="block w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none resize-none"
-                  placeholder="如有任何特殊需求或提問，請在此填寫..."
-                ></textarea>
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-2">
+                聯絡手機 <span class="text-red-500">*</span>
+              </label>
+              <div class="relative">
+                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                  <i data-lucide="phone" class="h-5 w-5 text-gray-400"></i>
+                </div>
+                <input
+                  type="tel"
+                  id="phone"
+                  name="phone"
+                  required
+                  class="block w-full pl-11 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none"
+                  placeholder="09XX-XXX-XXX"
+                />
               </div>
+            </div>
 
-              <button
-                type="submit"
-                disabled={isSubmitting || isLoading || (formData.department && availability[formData.department] >= 1)}
-                className={`w-full py-4 px-4 rounded-xl text-white font-bold text-lg flex justify-center items-center transition-all ${
-                  (isSubmitting || isLoading || (formData.department && availability[formData.department] >= 1))
-                    ? 'bg-gray-400 cursor-not-allowed shadow-none' 
-                    : 'bg-teal-600 hover:bg-teal-700 shadow-lg shadow-teal-500/30 hover:shadow-teal-500/50 transform hover:-translate-y-0.5 active:translate-y-0'
-                }`}
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-2">
+                報名考官科別 <span class="text-red-500">*</span>
+              </label>
+              <select
+                id="department"
+                name="department"
+                required
+                class="custom-select block w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none appearance-none text-gray-500"
+                onchange="this.classList.remove('text-gray-500'); this.classList.add('text-gray-800'); checkWarning();"
               >
-                {isSubmitting ? (
-                  <span className="flex items-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    資料送出中...
-                  </span>
-                ) : (
-                  <>
-                    確認報名
-                    <ChevronRight className="w-5 h-5 ml-1" />
-                  </>
-                )}
-              </button>
-              
-            </form>
-          </div>
-        </div>
+                <option value="" disabled selected>請選擇欲報名之科別...</option>
+                <option value="內科">內科 (尚缺 1 名)</option>
+                <option value="外科">外科 (尚缺 1 名)</option>
+                <option value="婦產科">婦產科 (尚缺 1 名)</option>
+                <option value="兒科">兒科 (尚缺 1 名)</option>
+              </select>
+              <!-- 提示訊息 -->
+              <p id="full-warning" class="hidden text-red-500 text-sm mt-2 flex items-center">
+                <i data-lucide="alert-circle" class="w-4 h-4 mr-1"></i>
+                注意：此科別剛剛已被報名額滿，請選擇其他科別。
+              </p>
+            </div>
 
-      </main>
-    </div>
-  );
-}
+            <div>
+              <label class="block text-sm font-bold text-gray-700 mb-2">
+                備註留言
+              </label>
+              <textarea
+                id="notes"
+                name="notes"
+                rows="3"
+                class="block w-full px-4 py-3.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none resize-none"
+                placeholder="如有任何特殊需求或提問，請在此填寫..."
+              ></textarea>
+            </div>
+
+            <button
+              type="submit"
+              id="submit-btn"
+              disabled
+              class="w-full py-4 px-4 rounded-xl text-white font-bold text-lg flex justify-center items-center transition-all bg-gray-400 cursor-not-allowed shadow-none"
+            >
+              <span id="submit-spinner" class="hidden flex items-center">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                資料送出中...
+              </span>
+              <span id="submit-text" class="flex items-center">
+                確認報名
+                <i data-lucide="chevron-right" class="w-5 h-5 ml-1"></i>
+              </span>
+            </button>
+            
+          </form>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- 邏輯腳本 -->
+  <script>
+    // 渲染 Lucide Icons
+    lucide.createIcons();
+
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzjS1u-tqJBkFdCd31_hLaGUaE6NpEIjil_tSwOb8Swx3-G3fKvLAwEQG0gTW74JpPT/exec'; 
+    let availability = { '內科': 0, '外科': 0, '婦產科': 0, '兒科': 0 };
+
+    // DOM Elements
+    const form = document.getElementById('enrollment-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitText = document.getElementById('submit-text');
+    const submitSpinner = document.getElementById('submit-spinner');
+    const selectDept = document.getElementById('department');
+    const fullWarning = document.getElementById('full-warning');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const formLoadingOverlay = document.getElementById('form-loading-overlay');
+    
+    // 初始化：載入報名人數
+    async function init() {
+      try {
+        const res = await fetch(SCRIPT_URL);
+        const data = await res.json();
+        
+        if (data.success && data.counts) {
+          availability = data.counts;
+          updateUI();
+        }
+      } catch (err) {
+        console.error('無法取得報名狀態:', err);
+      } finally {
+        // 隱藏載入遮罩
+        loadingOverlay.classList.add('hidden');
+        formLoadingOverlay.classList.add('hidden');
+        checkButtonState();
+      }
+    }
+
+    // 根據 availability 更新畫面 (卡片、選單)
+    function updateUI() {
+      const depts = ['內科', '外科', '婦產科', '兒科'];
+      
+      depts.forEach(dept => {
+        const isFull = availability[dept] >= 1;
+        
+        // 1. 更新卡片樣式
+        const card = document.getElementById(`card-${dept}`);
+        const icon = card.querySelector('.icon-color');
+        const title = card.querySelector('.dept-title');
+        const badge = card.querySelector('.status-badge');
+        
+        if (isFull) {
+          card.className = "dept-card flex flex-col items-center p-4 rounded-2xl border transition-all duration-300 bg-gray-50 border-gray-200 grayscale opacity-70";
+          icon.classList.remove('text-rose-500', 'text-sky-500', 'text-purple-500', 'text-amber-500');
+          icon.classList.add('text-gray-400');
+          title.classList.replace('text-gray-700', 'text-gray-500');
+          badge.className = "status-badge text-xs font-medium mt-1.5 px-2 py-0.5 rounded-md shadow-sm bg-gray-200 text-gray-500";
+          badge.innerText = "已額滿";
+        }
+
+        // 2. 更新下拉選單選項
+        const option = Array.from(selectDept.options).find(opt => opt.value === dept);
+        if (option) {
+          if (isFull) {
+            option.disabled = true;
+            option.text = `${dept} (已額滿)`;
+          } else {
+            option.disabled = false;
+            option.text = `${dept} (尚缺 1 名)`;
+          }
+        }
+      });
+      checkWarning();
+    }
+
+    // 檢查是否選到已滿科別並控制警告訊息及按鈕狀態
+    function checkWarning() {
+      const selectedDept = selectDept.value;
+      if (selectedDept && availability[selectedDept] >= 1) {
+        fullWarning.classList.remove('hidden');
+      } else {
+        fullWarning.classList.add('hidden');
+      }
+      checkButtonState();
+    }
+
+    // 控制提交按鈕的外觀與鎖定狀態
+    function checkButtonState() {
+      const selectedDept = selectDept.value;
+      const isLoading = !loadingOverlay.classList.contains('hidden'); // 如果還在載入中
+      const isFull = selectedDept ? availability[selectedDept] >= 1 : false;
+
+      if (isLoading || isFull) {
+        submitBtn.disabled = true;
+        submitBtn.className = "w-full py-4 px-4 rounded-xl text-white font-bold text-lg flex justify-center items-center transition-all bg-gray-400 cursor-not-allowed shadow-none";
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.className = "w-full py-4 px-4 rounded-xl text-white font-bold text-lg flex justify-center items-center transition-all bg-teal-600 hover:bg-teal-700 shadow-lg shadow-teal-500/30 hover:shadow-teal-500/50 transform hover:-translate-y-0.5 active:translate-y-0";
+      }
+    }
+
+    // 表單送出處理
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = {
+        name: document.getElementById('name').value,
+        phone: document.getElementById('phone').value,
+        department: selectDept.value,
+        notes: document.getElementById('notes').value
+      };
+
+      // 雙重檢查
+      if (availability[formData.department] >= 1) {
+        alert(`抱歉，${formData.department} 剛剛已經額滿了，請選擇其他科別。`);
+        return;
+      }
+
+      // 切換按鈕為 Loading 狀態
+      submitBtn.disabled = true;
+      submitBtn.className = "w-full py-4 px-4 rounded-xl text-white font-bold text-lg flex justify-center items-center transition-all bg-gray-400 cursor-not-allowed shadow-none";
+      submitText.classList.add('hidden');
+      submitSpinner.classList.remove('hidden');
+
+      try {
+        const response = await fetch(SCRIPT_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(formData)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+          // 顯示成功畫面
+          document.getElementById('main-content').classList.add('hidden');
+          document.getElementById('success-screen').classList.remove('hidden');
+          document.getElementById('success-screen').classList.add('flex');
+          
+          // 更新本地狀態
+          availability[formData.department]++;
+          updateUI();
+        } else {
+          alert('報名失敗：' + (result.message || '請稍後再試'));
+        }
+      } catch (error) {
+        alert('連線發生錯誤，請稍後再試。');
+        console.error(error);
+      } finally {
+        // 恢復按鈕狀態
+        submitSpinner.classList.add('hidden');
+        submitText.classList.remove('hidden');
+        checkButtonState();
+      }
+    });
+
+    // 返回首頁按鈕
+    document.getElementById('back-btn').addEventListener('click', () => {
+      document.getElementById('success-screen').classList.add('hidden');
+      document.getElementById('success-screen').classList.remove('flex');
+      document.getElementById('main-content').classList.remove('hidden');
+      
+      // 清空表單
+      form.reset();
+      selectDept.classList.add('text-gray-500');
+      selectDept.classList.remove('text-gray-800');
+      checkButtonState();
+    });
+
+    // 啟動載入
+    window.onload = init;
+
+  </script>
+</body>
+</html>
